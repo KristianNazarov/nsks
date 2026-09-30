@@ -1,0 +1,36 @@
+# OS / IDE
+.DS_Store
+*.swp
+*~
+.idea/
+.vscode/
+xcuserdata/
+*.xcodeproj
+DerivedData/
+.swiftpm/
+
+# Build & release artifacts
+.build/
+dist/
+*.dmg
+*.pkg
+
+# Local signing / secrets
+.signing/
+*.p12
+*.cer
+*.key
+.env
+.env.*
+credentials*
+
+# Project notes not for public
+prompt.md
+
+# Logs / temp
+*.log
+Resources/AppIcon.iconset/
+Resources/_icon_master.png
+
+# Debug probe helpers (optional local-only; keep packaging scripts)
+# Scripts/ax-probe.swift and friends stay in repo for contributors
