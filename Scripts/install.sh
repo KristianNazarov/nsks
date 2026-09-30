@@ -10,11 +10,13 @@ KEYCHAIN="$ROOT/.signing/KeySwitcher.keychain-db"
 KEYCHAIN_PASS="keyswitcher-signing"
 
 DEST_DIR="/Applications"
-if [[ ! -w "$DEST_DIR" ]]; then
+DEST_APP="${DEST_DIR}/${APP_NAME}.app"
+# Prefer /Applications, but fall back if the existing app is root-owned / not removable
+if [[ ! -w "$DEST_DIR" ]] || { [[ -e "$DEST_APP" ]] && ! rm -rf "$DEST_APP" 2>/dev/null; }; then
   DEST_DIR="$HOME/Applications"
   mkdir -p "$DEST_DIR"
+  DEST_APP="${DEST_DIR}/${APP_NAME}.app"
 fi
-DEST_APP="${DEST_DIR}/${APP_NAME}.app"
 
 echo "==> Building release app"
 "$ROOT/Scripts/build-app.sh"

@@ -12,41 +12,46 @@ public final class TextReplacementService {
 
     public init() {}
 
-    public func deleteCharacters(count: Int) {
+    public func deleteCharacters(count: Int, useHID: Bool = false) {
         let n = min(max(0, count), Self.maxDeleteCount)
         guard n > 0 else { return }
         SyntheticEventGuard.shared.withSynthetic {
-            let source = CGEventSource(stateID: .privateState)
+            let source = CGEventSource(stateID: useHID ? .hidSystemState : .privateState)
             source?.localEventsSuppressionInterval = 0
+            let delay = useHID ? 0.018 : 0.008
             for _ in 0..<n {
                 postKey(keyCode: 51, keyDown: true, flags: [], source: source) // Backspace
                 postKey(keyCode: 51, keyDown: false, flags: [], source: source)
-                Thread.sleep(forTimeInterval: 0.008)
+                Thread.sleep(forTimeInterval: delay)
             }
         }
     }
 
-    public func typeText(_ text: String) {
+    public func typeText(_ text: String, useHID: Bool = false) {
         guard !text.isEmpty else { return }
         SyntheticEventGuard.shared.withSynthetic {
-            let source = CGEventSource(stateID: .privateState)
+            let source = CGEventSource(stateID: useHID ? .hidSystemState : .privateState)
             source?.localEventsSuppressionInterval = 0
             for ch in text {
                 postUnicode(ch, source: source)
-                Thread.sleep(forTimeInterval: 0.001)
+                Thread.sleep(forTimeInterval: 0.004)
             }
         }
     }
 
-    /// Returns `true` only when the UI was actually updated.
+    /// Returns `true` only when the UI was actually updated (best-effort in terminals).
     @discardableResult
     public func replaceLastWord(deleteCount: Int, insert: String, expected: String) -> Bool {
         Thread.sleep(forTimeInterval: 0.08)
         let n = min(max(0, deleteCount), Self.maxDeleteCount)
         guard n > 0, !expected.isEmpty else { return false }
 
-        // If the word is already selected, just replace it — never re-select "before caret"
-        // (that expands upward in Sublime when location is the selection start).
+        if FrontmostApp.isTerminalLike {
+            AppLogger.info("Last word: terminal-like app (\(FrontmostApp.bundleID ?? "?"))")
+            return replaceLastWordInTerminal(deleteCount: n, insert: insert, expected: expected)
+        }
+
+        // If the word is already selected, just replace it
         if let sel = accessibility.selectedText(), Self.matchesSelection(sel, expected: expected) {
             if accessibility.setSelectedText(insert) { return true }
             if clipboard.syncPasteOverSelection(insert) { return true }
@@ -57,12 +62,10 @@ public final class TextReplacementService {
             if clipboard.syncPasteOverSelection(insert) { return true }
         }
 
-        // AX value replace when available (skip enormous buffers)
         if accessibility.replaceInFocusedValue(original: expected, replacement: insert) {
             return true
         }
 
-        // Select exactly `n` chars ending at caret/selection-end, then paste
         if accessibility.selectBeforeCaret(count: n) {
             let confirmed: Bool = {
                 if let sel = accessibility.selectedText(), Self.matchesSelection(sel, expected: expected) {
@@ -77,11 +80,9 @@ public final class TextReplacementService {
                 if accessibility.setSelectedText(insert) { return true }
                 if clipboard.syncPasteOverSelection(insert) { return true }
             }
-            // Never leave a dangling selection for the next hotkey press
             accessibility.collapseSelectionToEnd()
         }
 
-        // Backspace + paste (modifiers are up). Prefer length check when AX value exists.
         if let lenBefore = accessibility.focusedValueUTF16Length(), lenBefore < 100_000 {
             deleteCharacters(count: n)
             Thread.sleep(forTimeInterval: 0.04)
@@ -94,12 +95,77 @@ public final class TextReplacementService {
             return false
         }
 
-        // Sublime large files / no AX value: backspace + paste (no ⌥⇧← — it grows selection).
         deleteCharacters(count: n)
         Thread.sleep(forTimeInterval: 0.03)
         if clipboard.syncPasteOverSelection(insert) { return true }
         typeText(insert)
         return true
+    }
+
+    /// Terminal.app / iTerm / Warp: never send arrow keys for deletion — they become CSI (`;2D`).
+    /// Prefer readline Ctrl+W (one reliable keystroke), then paste. One → after paste clears
+    /// Terminal’s “select pasted text” highlight without hurting the PTY when already at EOL.
+    private func replaceLastWordInTerminal(deleteCount n: Int, insert: String, expected: String) -> Bool {
+        _ = expected
+        Thread.sleep(forTimeInterval: 0.06)
+
+        postControlKey("w")
+        Thread.sleep(forTimeInterval: 0.1)
+        pasteOrTypeInTerminal(insert)
+        // Terminal selects pasted text; dismiss highlight (at EOL → is a no-op for the shell).
+        Thread.sleep(forTimeInterval: 0.04)
+        postArrowRight()
+        AppLogger.info("Terminal last word: Ctrl+W + paste/type (buffer had \(n) chars)")
+        return true
+    }
+
+    private func pasteOrTypeInTerminal(_ insert: String) {
+        let pasteboard = NSPasteboard.general
+        let saved = clipboard.savePasteboard(pasteboard)
+        if clipboard.writeVerifiedForTerminal(insert) {
+            Thread.sleep(forTimeInterval: 0.05)
+            postTerminalPaste()
+            // Keep pasteboard until Terminal consumes Cmd+V
+            Thread.sleep(forTimeInterval: 0.2)
+            clipboard.restorePasteboard(pasteboard, items: saved)
+            return
+        }
+        clipboard.restorePasteboard(pasteboard, items: saved)
+        typeText(insert, useHID: true)
+    }
+
+    private func postTerminalPaste() {
+        SyntheticEventGuard.shared.withSynthetic {
+            let source = CGEventSource(stateID: .hidSystemState)
+            source?.localEventsSuppressionInterval = 0
+            postKey(keyCode: 9, keyDown: true, flags: .maskCommand, source: source) // V
+            postKey(keyCode: 9, keyDown: false, flags: .maskCommand, source: source)
+        }
+    }
+
+    private func postArrowRight() {
+        SyntheticEventGuard.shared.withSynthetic {
+            let source = CGEventSource(stateID: .hidSystemState)
+            source?.localEventsSuppressionInterval = 0
+            postKey(keyCode: 124, keyDown: true, flags: [], source: source)
+            postKey(keyCode: 124, keyDown: false, flags: [], source: source)
+        }
+    }
+
+    private func postControlKey(_ key: String) {
+        let keyCode: CGKeyCode
+        switch key.lowercased() {
+        case "w": keyCode = 13
+        case "u": keyCode = 32
+        case "h": keyCode = 4
+        default: return
+        }
+        SyntheticEventGuard.shared.withSynthetic {
+            let source = CGEventSource(stateID: .hidSystemState)
+            source?.localEventsSuppressionInterval = 0
+            postKey(keyCode: keyCode, keyDown: true, flags: .maskControl, source: source)
+            postKey(keyCode: keyCode, keyDown: false, flags: .maskControl, source: source)
+        }
     }
 
     private static func matchesSelection(_ selected: String, expected: String) -> Bool {

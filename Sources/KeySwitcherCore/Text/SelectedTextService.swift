@@ -406,6 +406,7 @@ public final class ClipboardTextService {
     }
 
     /// Paste known text over current selection (sync). Never Cmd+V until pasteboard matches `text`.
+    /// Returns whether pasteboard write + Cmd+V were posted — not whether the target app accepted them.
     public func syncPasteOverSelection(_ text: String) -> Bool {
         let pasteboard = NSPasteboard.general
         let saved = savePasteboard(pasteboard)
@@ -417,6 +418,24 @@ public final class ClipboardTextService {
         Thread.sleep(forTimeInterval: 0.08)
         restorePasteboard(pasteboard, items: saved)
         return true
+    }
+
+    /// Cmd+C and check the clipboard matches `expected`. Used to verify Terminal ⇧← selection.
+    public func syncCopyMatches(_ expected: String, timeout: TimeInterval = 0.28) -> Bool {
+        let pasteboard = NSPasteboard.general
+        let saved = savePasteboard(pasteboard)
+        let changeCount = pasteboard.changeCount
+        postCommandKeySync("c", preferHID: true)
+        let copied = waitForStringChange(pasteboard: pasteboard, from: changeCount, timeout: timeout)
+        restorePasteboard(pasteboard, items: saved)
+        guard let copied else { return false }
+        let norm: (String) -> String = { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+        return copied == expected || norm(copied) == norm(expected)
+    }
+
+    /// Write string to pasteboard and verify it stuck (for Terminal paste without early restore).
+    public func writeVerifiedForTerminal(_ text: String) -> Bool {
+        writeStringToPasteboardVerified(text, pasteboard: .general)
     }
 
     public func transformSelection(_ transform: (String) -> String?) async -> Bool {
