@@ -17,15 +17,13 @@ Menu bar утилита для macOS (Apple Silicon), которая быстр�
 
 Хоткеи настраиваются в Settings. Срабатывание — на **отпускание** клавиш.
 
-Работает в большинстве приложений: Cursor, Sublime Text, браузеры, Word (через fallback) и обычные Cocoa-поля.
-
 ## Требования
 
 - macOS 14+
 - Apple Silicon (arm64)
 - Разрешения: **Accessibility** и **Input Monitoring**
 
-## Установка для коллег
+## Установка
 
 1. Скачайте `KeySwitcher-*.dmg` или `KeySwitcher-*.pkg` из [Releases](../../releases) (или соберите сами — см. ниже).
 2. **PKG** — двойной клик, мастер установки → Next → Install. В конце пакет можно отправить в Корзину.
@@ -36,7 +34,6 @@ Menu bar утилита для macOS (Apple Silicon), которая быстр�
 5. Меню KeySwitcher (иконка клавиатуры в **строке меню**) → **Permissions…** → **Retry Start Monitoring**.
 
 > Строка меню (menu bar) — полоска вверху экрана справа, где часы и Wi‑Fi. KeySwitcher живёт там как menu bar app и не занимает Dock по умолчанию.
-
 ## Сборка из исходников
 
 ```bash
