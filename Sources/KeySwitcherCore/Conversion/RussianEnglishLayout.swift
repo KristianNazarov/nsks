@@ -59,9 +59,19 @@ public struct RussianEnglishLayout: KeyboardLayoutMapping, Sendable {
         "<": "Б", ">": "Ю", "?": ","
     ]
 
+    /// Shift+number row on macOS (EN QWERTY ↔ RU ЙЦУКЕН). Keys 5/8/9/0 and `!` are unchanged.
+    private static let enToRuNumberRowShift: [Character: Character] = [
+        "@": "\"",
+        "#": "№",
+        "$": ";",
+        "^": ":",
+        "&": "?"
+    ]
+
     private static let enToRu: [Character: Character] = {
         var result = enToRuLower
         for (k, v) in enToRuUpper { result[k] = v }
+        for (k, v) in enToRuNumberRowShift { result[k] = v }
         return result
     }()
 
@@ -76,7 +86,7 @@ public struct RussianEnglishLayout: KeyboardLayoutMapping, Sendable {
     private static let passthrough: Set<Character> = [
         "0", "1", "2", "3", "4", "5", "6", "7", "8", "9",
         " ", "\t", "\n",
-        "-", "=", "!", "@", "#", "$", "%", "^", "&", "*", "(", ")",
+        "-", "=", "!", "%", "*", "(", ")",
         "+", "_", "\\", "|"
     ]
 

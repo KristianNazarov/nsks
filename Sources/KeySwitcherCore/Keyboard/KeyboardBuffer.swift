@@ -108,6 +108,14 @@ public final class KeyboardBuffer: @unchecked Sendable {
             idx -= 1
         }
 
+        // Lone layout symbols (e.g. `"` instead of `@`) are listed as trailing separators
+        // but must still convert when they are the entire buffer.
+        if idx < 0, !trailing.isEmpty,
+           trailing.allSatisfy({ Self.isWordCharacter($0) }),
+           !trailing.contains(where: { $0.isLetter || $0.isNumber }) {
+            return LastWordMatch(word: String(trailing), trailingSeparators: "")
+        }
+
         guard idx >= 0 else { return nil }
 
         // 2) Word body: letters/digits OR layout-mapped keys (`[`↔`х`, etc.)

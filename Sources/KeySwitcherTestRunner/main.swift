@@ -50,6 +50,11 @@ struct TestRunner {
         expectEqual(converter.convert("GHBDTN")?.text, "ПРИВЕТ")
         expectEqual(converter.convert("Ghbdtn")?.text, "Привет")
         expectEqual(converter.convert("ghbdtn vbh")?.text, "привет мир")
+
+        expectEqual(converter.convert("\"")?.text, "@")
+        expectEqual(converter.convert("@")?.text, "\"")
+        expectEqual(converter.convert("№")?.text, "#")
+        expectEqual(converter.convert("#")?.text, "№")
     }
 
     static func testKeyboardBuffer() {
@@ -95,6 +100,16 @@ struct TestRunner {
         expectEqual(buffer7.lastWord()?.word, "[kjgeitr")
         let ru = conv.convert(buffer7.lastWord()!.word)
         expectEqual(ru?.text, "хлопушек")
+
+        let buffer8 = KeyboardBuffer()
+        for ch in "\"" { buffer8.append(ch) }
+        expectEqual(buffer8.lastWord()?.word, "\"")
+        expectEqual(conv.convert(buffer8.lastWord()!.word)?.text, "@")
+
+        let buffer9 = KeyboardBuffer()
+        for ch in "@" { buffer9.append(ch) }
+        expectEqual(buffer9.lastWord()?.word, "@")
+        expectEqual(conv.convert(buffer9.lastWord()!.word)?.text, "\"")
     }
 
     static func testCaseConverter() {
